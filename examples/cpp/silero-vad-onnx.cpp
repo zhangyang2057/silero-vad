@@ -109,7 +109,7 @@ private:
         session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
     };
 
-    void init_onnx_model(const std::wstring& model_path)
+    void init_onnx_model(const std::string& model_path)
     {
         // Init threads = 1 for 
         init_engine_threads(1, 1);
@@ -386,7 +386,7 @@ private:
 
 public:
     // Construction
-    VadIterator(const std::wstring ModelPath,
+    VadIterator(const std::string ModelPath,
         int Sample_rate = 16000, int windows_frame_size = 32,
         float Threshold = 0.5, int min_silence_duration_ms = 0,
         int speech_pad_ms = 32, int min_speech_duration_ms = 32,
@@ -421,12 +421,17 @@ public:
     };
 };
 
-int main()
+int main(int argc, char *argv[])
 {
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " wav_file onnx_file" << std::endl;
+        return 1;
+    }
+
     std::vector<timestamp_t> stamps;
 
     // Read wav
-    wav::WavReader wav_reader("recorder.wav"); //16000,1,32float
+    wav::WavReader wav_reader(argv[1]); //16000,1,32float
     std::vector<float> input_wav(wav_reader.num_samples());
     std::vector<float> output_wav;
 
@@ -438,12 +443,13 @@ int main()
 
 
     // ===== Test configs =====
-    std::wstring path = L"silero_vad.onnx";
+    std::string path(argv[2]);
     VadIterator vad(path);
 
     // ==============================================
     // ==== = Example 1 of full function  ===== 
     // ==============================================
+    std::cout << "example 1" << std::endl;
     vad.process(input_wav);
 
     // 1.a get_speech_timestamps
@@ -462,6 +468,7 @@ int main()
     // ==============================================
     // ===== Example 2 of simple full function  =====
     // ==============================================
+    std::cout << "example 2" << std::endl;
     vad.process(input_wav, output_wav);
 
     stamps = vad.get_speech_timestamps();
@@ -473,6 +480,7 @@ int main()
     // ==============================================
     // ===== Example 3 of full function  =====
     // ==============================================
+    std::cout << "example 3" << std::endl;
     for(int i = 0; i<2; i++)
         vad.process(input_wav, output_wav);
 }
