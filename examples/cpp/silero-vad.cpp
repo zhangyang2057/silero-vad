@@ -455,6 +455,7 @@ public:
     }
 };
 #else
+#define NNCASE_DUMP_BIN 0
 class NncaseVadIterator: public VadIterator
 {
 private:
@@ -465,10 +466,21 @@ private:
         entry_function_ = interpreter_.entry_function().unwrap_or_throw();
     };
 
+#if NNCASE_DUMP_BIN
+    void dump_to_bin(const char *file_name, const char *buf, size_t size)
+    {
+        std::ofstream ofs(file_name, std::ios::out | std::ios::binary);
+        ofs.write(buf, size);
+        ofs.close();
+    }
+#endif
     void predict(const std::vector<float> &data)
     {
         // Infer
         std::vector<nncase::value_t> inputs;
+#if NNCASE_DUMP_BIN
+        static size_t count = 0;
+#endif
 
         // set input1
         input.assign(data.begin(), data.end());
@@ -484,6 +496,11 @@ private:
         memcpy(reinterpret_cast<void *>(input_ptr), reinterpret_cast<const void *>(input.data()), input.size() * sizeof(float));
         input_buffer.sync(nncase::runtime::sync_write_back, true).unwrap_or_throw();
         inputs.push_back(input_tensor);
+#if NNCASE_DUMP_BIN
+        char file_name[64] = "\0";
+        snprintf(file_name, sizeof(file_name) / sizeof(file_name[0]), "tmp/input_%08lu.bin", count);
+        dump_to_bin(file_name, reinterpret_cast<const char *>(input_ptr), input.size() * sizeof(float));
+#endif
 
         // set input2
         type = entry_function_->parameter_type(1).expect("parameter type out of index");
@@ -498,6 +515,10 @@ private:
         memcpy(reinterpret_cast<void *>(state_ptr), reinterpret_cast<const void *>(_state.data()), _state.size() * sizeof(float));
         state_buffer.sync(nncase::runtime::sync_write_back, true).unwrap_or_throw();
         inputs.push_back(state_tensor);
+#if NNCASE_DUMP_BIN
+        snprintf(file_name, sizeof(file_name) / sizeof(file_name[0]), "tmp/state_%08lu.bin", count);
+        dump_to_bin(file_name, reinterpret_cast<const char *>(state_ptr), _state.size() * sizeof(float));
+#endif
 
         // set input3
         type = entry_function_->parameter_type(2).expect("parameter type out of index");
@@ -512,6 +533,11 @@ private:
         sr_ptr[0] = sr[0];
         sr_buffer.sync(nncase::runtime::sync_write_back, true).unwrap_or_throw();
         inputs.push_back(sr_tensor);
+#if NNCASE_DUMP_BIN
+        snprintf(file_name, sizeof(file_name) / sizeof(file_name[0]), "tmp/sr_%08lu.bin", count);
+        dump_to_bin(file_name, reinterpret_cast<const char *>(sr_ptr), sizeof(int64_t));
+        count++;
+#endif
 
         // Infer
         auto outputs = entry_function_->invoke(inputs).unwrap_or_throw().as<nncase::tuple>().unwrap_or_throw();
@@ -720,19 +746,19 @@ int main(int argc, char *argv[])
     // ==============================================
     // ===== Example 2 of simple full function  =====
     // ==============================================
-    std::cout << "example 2" << std::endl;
-    vad->process(input_wav, output_wav);
+    // std::cout << "example 2" << std::endl;
+    // vad->process(input_wav, output_wav);
 
-    stamps = vad->get_speech_timestamps();
-    for (int i = 0; i < stamps.size(); i++) {
+    // stamps = vad->get_speech_timestamps();
+    // for (int i = 0; i < stamps.size(); i++) {
 
-        std::cout << stamps[i].c_str() << std::endl;
-    }
+    //     std::cout << stamps[i].c_str() << std::endl;
+    // }
 
     // ==============================================
     // ===== Example 3 of full function  =====
     // ==============================================
-    std::cout << "example 3" << std::endl;
-    for(int i = 0; i<2; i++)
-        vad->process(input_wav, output_wav);
+    // std::cout << "example 3" << std::endl;
+    // for(int i = 0; i<2; i++)
+    //     vad->process(input_wav, output_wav);
 }
